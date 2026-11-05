@@ -156,6 +156,36 @@ export const VISUALS = {
     INNER: 0.55, // fraction of the radius that stays clear
   },
 
+  // Touch controls: a floating joystick that appears wherever the thumb goes down.
+  TOUCH: {
+    RADIUS: 62, // screen px the knob can travel from the centre
+    KNOB_RADIUS: 28,
+    DEADZONE: 8, // px of drag ignored (so a tap doesn't nudge the player)
+    FULL_SPEED_AT: 0.75, // fraction of RADIUS where the player reaches full speed
+    MIN_STRENGTH: 0.35, // speed fraction just past the deadzone
+    FOLLOW: true, // dragging past the ring pulls the joystick along
+    BASE_COLOR: 0xffffff,
+    BASE_ALPHA: 0.16,
+    RING_ALPHA: 0.45,
+    KNOB_COLOR: 0xffffff,
+    KNOB_ALPHA: 0.6,
+    FADE_DURATION: 160,
+    MOUSE_DRAG: true, // a mouse can drag-steer too (handy for testing on desktop)
+  },
+
+  // Small screens (phones): zoom the camera out and scale the HUD.
+  MOBILE: {
+    MIN_VISIBLE_WORLD: 560, // the screen's short side always shows at least this many world px
+    MIN_ZOOM: 0.6,
+    UI_REFERENCE: { WIDTH: 1000, HEIGHT: 640 }, // at or above this size the HUD is 1:1
+    MIN_UI_SCALE: 0.72,
+    NARROW_WIDTH: 720, // below this the base bar gets its own row above the panels
+    HUD_MARGIN: 12,
+    WORLD_TEXT_FACTOR: 0.85, // world text (pads, toasts) is scaled up by this / zoom when zoomed out
+    MAX_WORLD_TEXT_SCALE: 1.5,
+    DEBUG_BUTTON_SIZE: 46,
+  },
+
   UI: {
     PANEL_COLOR: 0x15210f,
     PANEL_ALPHA: 0.62,

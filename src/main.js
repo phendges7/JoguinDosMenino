@@ -15,6 +15,10 @@ const game = new Phaser.Game({
     default: 'arcade',
     arcade: { debug: false },
   },
+  // Two touch points: one steers while another can tap a button.
+  input: { activePointers: 2 },
+  disableContextMenu: true, // long-press shouldn't open a menu
+
   scene: [GameScene, UIScene],
 });
 

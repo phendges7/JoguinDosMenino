@@ -6,6 +6,7 @@ export function toast(scene, x, y, message, color = '#ffffff') {
       color, stroke: '#000000', strokeThickness: 4,
     })
     .setOrigin(0.5)
+    .setScale(scene.worldTextScale ?? 1) // readable when a phone zooms the camera out
     .setDepth(1e6 + 1);
   scene.tweens.add({
     targets: text,

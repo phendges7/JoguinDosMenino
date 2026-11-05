@@ -444,9 +444,10 @@ export const CONFIG = {
     },
   ],
 
-  // Testing helpers. Set ENABLED to false for a real build.
+  // Testing helpers. On with `npm run dev`, off in the published build
+  // (`npm run build`). Set to true / false to force it either way.
   DEBUG: {
-    ENABLED: true,
+    ENABLED: import.meta.env.DEV,
     GIVE_KEY: "G", // adds GIVE_AMOUNT to the backpack
     GIVE_AMOUNT: { wood: 50, stone: 30, gold: 10 },
     SPAWN_KEY: "Z", // spawns SPAWN_COUNT zombies at the portal

@@ -28,6 +28,7 @@ export class Player {
 
     this.facing = new Phaser.Math.Vector2(0, 1);
     this.alive = true; // set by Combat; a dead player ignores input
+    this.moveInput = null; // { active, x, y, strength } written by the touch joystick
 
     this.keys = scene.input.keyboard.addKeys({
       up: 'W', down: 'S', left: 'A', right: 'D',
@@ -55,8 +56,15 @@ export class Player {
       (k.right.isDown || k.right2.isDown ? 1 : 0) - (k.left.isDown || k.left2.isDown ? 1 : 0),
       (k.down.isDown || k.down2.isDown ? 1 : 0) - (k.up.isDown || k.up2.isDown ? 1 : 0),
     );
-    const moving = dir.lengthSq() > 0;
-    if (moving) dir.normalize().scale(CONFIG.PLAYER.SPEED);
+    // No keys held: steer with the touch joystick (analog: strength 0..1).
+    let strength = 1;
+    const touch = this.moveInput;
+    if (dir.lengthSq() === 0 && touch?.active) {
+      dir.set(touch.x, touch.y);
+      strength = touch.strength;
+    }
+    const moving = dir.lengthSq() > 0 && strength > 0;
+    if (moving) dir.normalize().scale(CONFIG.PLAYER.SPEED * strength);
 
     // Exponential smoothing towards target velocity: frame-rate independent.
     const rate = moving ? CONFIG.PLAYER.ACCELERATION : CONFIG.PLAYER.DECELERATION;
