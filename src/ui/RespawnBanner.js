@@ -24,16 +24,18 @@ export class RespawnBanner {
     const onRespawned = () => this.hide();
     combat.on('player-died', onDied);
     combat.on('player-respawned', onRespawned);
-    scene.scale.on('resize', this.place, this);
     scene.events.once('shutdown', () => {
       combat.off('player-died', onDied);
       combat.off('player-respawned', onRespawned);
-      scene.scale.off('resize', this.place, this);
     });
   }
 
+  // Called by UIScene.layout() on start and on every resize.
   place() {
-    this.container.setPosition(this.scene.scale.width / 2, this.scene.scale.height * 0.4);
+    const { width, height } = this.scene.scale;
+    const k = this.scene.uiScale ?? 1;
+    this.container.setScale(k).setPosition(width / 2, height * 0.4);
+    this.detail.setWordWrapWidth((width - 32) / k);
   }
 
   show({ respawnIn, lost }) {

@@ -19,11 +19,7 @@ export class GameOverScreen {
       scene.time.delayedCall(CONFIG.HEALTH.GAME_OVER_DELAY * 0.6, () => this.show(stats));
     };
     combat.on('game-over', onGameOver);
-    scene.scale.on('resize', this.layout, this);
-    scene.events.once('shutdown', () => {
-      combat.off('game-over', onGameOver);
-      scene.scale.off('resize', this.layout, this);
-    });
+    scene.events.once('shutdown', () => combat.off('game-over', onGameOver));
   }
 
   show({ time, kills }) {
@@ -66,17 +62,20 @@ export class GameOverScreen {
     this.container = s.add.container(0, 0, [this.shade, this.panel]).setScrollFactor(0).setDepth(100);
     this.layout();
     this.container.setAlpha(0);
-    this.panel.setScale(0.8);
+    this.panel.setScale(this.fit * 0.8);
     s.tweens.add({ targets: this.container, alpha: 1, duration: 300 });
-    s.tweens.add({ targets: this.panel, scale: 1, duration: 350, ease: 'Back.easeOut' });
+    s.tweens.add({ targets: this.panel, scale: this.fit, duration: 350, ease: 'Back.easeOut' });
   }
 
+  // Called by UIScene.layout() on resize. The panel shrinks to fit small screens.
   layout() {
-    if (!this.container) return;
     const { width, height } = this.scene.scale;
+    this.fit = Math.min(1, (width - 24) / 430, (height - 24) / 310);
+    if (!this.container) return;
     this.shade.setSize(width, height);
     this.shade.input?.hitArea.setSize(width, height);
     this.panel.setPosition(width / 2, height / 2);
+    if (!this.scene.tweens.isTweening(this.panel)) this.panel.setScale(this.fit);
   }
 
   restart() {

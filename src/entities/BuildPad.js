@@ -68,8 +68,7 @@ export class BuildPad {
     types.forEach((type, i) => {
       const y = (i - (types.length - 1) / 2) * rowH;
       const icon = this.scene.add.image(-14, y, `icon-${type}`);
-      icon.setScale(iconSize / icon.height);
-      icon.baseScale = icon.scale;
+      icon.unitScale = iconSize / icon.height; // scale at text scale 1
       const text = this.scene.add
         .text(0, y, '', {
           fontFamily: 'Arial', fontSize: '18px', fontStyle: 'bold',
@@ -77,9 +76,27 @@ export class BuildPad {
         })
         .setOrigin(0, 0.5);
       this.container.add([icon, text]);
-      this.rows[type] = { icon, text };
+      this.rows[type] = { icon, text, y };
     });
+    this.setTextScale(this.scene.worldTextScale ?? 1);
     this.refresh();
+  }
+
+  // Bigger title and cost rows when the camera is zoomed out (phones).
+  // The pad square itself keeps its world size.
+  setTextScale(k) {
+    this.textScale = k;
+    // keep the scaled title within the pad's width (long titles wrap to two lines)
+    this.title.setScale(k).setWordWrapWidth((this.size + 14) / k);
+    const types = Object.keys(this.rows);
+    types.forEach((type, i) => {
+      const row = this.rows[type];
+      const y = (i - (types.length - 1) / 2) * 24 * k;
+      row.icon.baseScale = row.icon.unitScale * k;
+      row.icon.setScale(row.icon.baseScale).setPosition(-14 * k, y);
+      row.text.baseScale = k;
+      row.text.setScale(k).setPosition(0, y);
+    });
   }
 
   refresh() {
@@ -159,9 +176,9 @@ export class BuildPad {
     const row = this.rows[type];
     this.scene.tweens.killTweensOf([row.icon, row.text]);
     row.icon.setScale(row.icon.baseScale * 1.4);
-    row.text.setScale(1.25);
+    row.text.setScale(row.text.baseScale * 1.25);
     this.scene.tweens.add({ targets: row.icon, scale: row.icon.baseScale, duration: 150, ease: 'Back.easeOut' });
-    this.scene.tweens.add({ targets: row.text, scale: 1, duration: 150, ease: 'Back.easeOut' });
+    this.scene.tweens.add({ targets: row.text, scale: row.text.baseScale, duration: 150, ease: 'Back.easeOut' });
   }
 
   // Standing on the pad: brighter border and a gentle pulsing glow.

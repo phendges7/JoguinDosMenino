@@ -112,8 +112,9 @@ export class Effects {
         .setOrigin(0.5)
         .setDepth(VISUALS.DEPTH.FLOAT_TEXT);
     }
-    t.setText(message).setColor(color).setPosition(x, y).setAlpha(1).setScale(0.5).setVisible(true);
-    this.scene.tweens.add({ targets: t, scale: 1, duration: 160, ease: 'Back.easeOut' });
+    const k = this.scene.worldTextScale ?? 1; // bigger when a phone zooms the camera out
+    t.setText(message).setColor(color).setPosition(x, y).setAlpha(1).setScale(0.5 * k).setVisible(true);
+    this.scene.tweens.add({ targets: t, scale: k, duration: 160, ease: 'Back.easeOut' });
     this.scene.tweens.add({
       targets: t,
       y: y - F.RISE,

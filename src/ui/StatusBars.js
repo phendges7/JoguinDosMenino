@@ -53,7 +53,8 @@ export class StatusBars {
     const resourcePanelHeight = Object.keys(CONFIG.RESOURCES).length * H.ROW_HEIGHT + 12;
     const y = H.Y + resourcePanelHeight + H.PANEL_GAP;
     this.panel = scene.add.container(H.X, y).setScrollFactor(0);
-    this.panel.add(panel(scene, 0, 0, H.PANEL_WIDTH, 2 * H.ROW_HEIGHT + 12));
+    this.panelHeight = 2 * H.ROW_HEIGHT + 12;
+    this.panel.add(panel(scene, 0, 0, H.PANEL_WIDTH, this.panelHeight));
 
     const row1 = 6 + H.ROW_HEIGHT / 2;
     const row2 = row1 + H.ROW_HEIGHT;
@@ -83,8 +84,10 @@ export class StatusBars {
       .text(0, 50, 'Base under attack!', textStyle(15, { fontStyle: 'bold', color: '#ff8a80' }))
       .setOrigin(0.5, 0)
       .setAlpha(0);
+    this.basePanelHeight = 42;
+    this.basePanelWidth = panelW;
     this.basePanel.add([panel(scene, -panelW / 2, 0, panelW, 42), title, this.baseBar.container, this.warning]);
-    this.placeBasePanel();
+    this.basePanel.setX(scene.scale.width / 2); // UIScene.layout() places both panels
 
     // --- wiring ---
     const ph = combat.playerHealth;
@@ -101,15 +104,9 @@ export class StatusBars {
       [combat, 'kills-changed', (k) => this.setKills(k, true)],
     ];
     this.listeners.forEach(([emitter, event, fn]) => emitter.on(event, fn));
-    scene.scale.on('resize', this.placeBasePanel, this);
     scene.events.once('shutdown', () => {
       this.listeners.forEach(([emitter, event, fn]) => emitter.off(event, fn));
-      scene.scale.off('resize', this.placeBasePanel, this);
     });
-  }
-
-  placeBasePanel() {
-    this.basePanel.setPosition(this.scene.scale.width / 2, CONFIG.HUD.Y);
   }
 
   setKills(kills, animate) {

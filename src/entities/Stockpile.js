@@ -31,6 +31,12 @@ export class Stockpile {
       })
       .setOrigin(0.5, 0.5);
     this.view = scene.add.container(x, y, [pallet, this.stack.container, this.label]).setDepth(y + 10); // y-sort by the pallet
+    this.setTextScale(scene.worldTextScale ?? 1);
+  }
+
+  // Bigger count label when the camera is zoomed out (phones).
+  setTextScale(k) {
+    this.label.setScale(k).setY(22 + 6 * (k - 1));
   }
 
   get total() { return this.stack.count; }

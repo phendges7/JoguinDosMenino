@@ -21,6 +21,7 @@ import { WorkerManager } from '../systems/WorkerManager.js';
 import { VISUALS } from '../visuals.js';
 import { ensureTextures } from '../effects/textures.js';
 import { Effects } from '../effects/Effects.js';
+import { cameraZoom, worldTextScale } from '../ui/screen.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -32,6 +33,8 @@ export class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, W.WIDTH, W.HEIGHT);
     ensureTextures(this);
     this.fx = new Effects(this);
+    // World text grows when a small screen zooms the camera out (read by pads, toasts...).
+    this.worldTextScale = worldTextScale(cameraZoom(this.scale.width, this.scale.height));
     this.hitStopLeft = 0;
     this.lastHitStopAt = -Infinity;
     const ground = this.drawWorld();
@@ -43,6 +46,10 @@ export class GameScene extends Phaser.Scene {
     this.road = new Road(this, this.base);
     this.bakeGround([ground, this.road.graphics]);
     this.player = new Player(this, this.base.x, this.base.y);
+    // Written by the UI scene's touch joystick, read by the player.
+    this.moveInput = { active: false, x: 0, y: 0, strength: 0 };
+    this.player.moveInput = this.moveInput;
+    this.registry.set('moveInput', this.moveInput);
     this.fence = new Fence(this, this.base, this.road, this.player);
     this.backpack = new Backpack(this, this.player, this.inventory);
 
@@ -113,16 +120,30 @@ export class GameScene extends Phaser.Scene {
       onFire: (target, angle) => this.bowView.onFire(angle),
     });
 
-    setupDebugKeys(this, {
+    const debugActions = setupDebugKeys(this, {
       player: this.player, inventory: this.inventory, zombies: this.zombies, road: this.road,
       workers: this.workers, base: this.base,
     });
+    this.registry.set('debugActions', debugActions);
 
     const cam = this.cameras.main;
     cam.setBounds(0, 0, W.WIDTH, W.HEIGHT);
     cam.startFollow(this.player.sprite, true, CONFIG.CAMERA.FOLLOW_LERP, CONFIG.CAMERA.FOLLOW_LERP);
+    this.applyScreenSize();
+    this.scale.on('resize', this.applyScreenSize, this);
+    this.events.once('shutdown', () => this.scale.off('resize', this.applyScreenSize, this));
 
     this.scene.launch('UIScene');
+  }
+
+  // Phones see less of the world at 1:1, so zoom out to keep about the same view,
+  // and scale world text up to stay readable. Re-run on resize / rotation.
+  applyScreenSize() {
+    const zoom = cameraZoom(this.scale.width, this.scale.height);
+    this.cameras.main.setZoom(zoom);
+    this.worldTextScale = worldTextScale(zoom);
+    this.builds.pads.forEach((p) => p.setTextScale(this.worldTextScale));
+    this.workers.huts.forEach((h) => h.stockpile.setTextScale(this.worldTextScale));
   }
 
   // Graphics objects are re-drawn command by command every frame. The ground
