@@ -6,6 +6,8 @@ import { CONFIG } from '../config.js';
 // The gate doors swing open when the player is near; they don't block the player.
 // (Zombies, in a later milestone, should treat the closed gate as solid.)
 // The fence rebuilds itself when the base expands.
+// Posts and rail pieces are separate y-sorted sprites, so the player is hidden
+// behind the near (bottom) side and drawn in front of the far side.
 export class Fence {
   constructor(scene, base, road, player) {
     this.scene = scene;
@@ -15,8 +17,8 @@ export class Fence {
 
     this.colliders = scene.physics.add.staticGroup();
     scene.physics.add.collider(player.sprite, this.colliders);
-    this.graphics = scene.add.graphics().setDepth(-800);
-    this.gateView = scene.add.container(0, 0).setDepth(-790);
+    this.segments = [];
+    this.gateView = scene.add.container(0, 0);
     this.doors = [];
     this.openAmount = 0;
 
@@ -30,7 +32,7 @@ export class Fence {
   }
 
   onExpandStart() {
-    this.scene.tweens.add({ targets: [this.graphics, this.gateView], alpha: 0, duration: 300 });
+    this.scene.tweens.add({ targets: [...this.segments, this.gateView], alpha: 0, duration: 300 });
   }
 
   build(radius) {
@@ -39,8 +41,9 @@ export class Fence {
     this.colliders.clear(true, true);
     this.gateView.removeAll(true);
     this.doors = [];
-    this.scene.tweens.killTweensOf([this.graphics, this.gateView]);
-    this.graphics.clear().setAlpha(1);
+    this.scene.tweens.killTweensOf([...this.segments, this.gateView]);
+    this.segments.forEach((g) => g.destroy());
+    this.segments = [];
     this.gateView.setAlpha(1);
 
     const theta = this.road.angleAtRadius(radius);
@@ -51,20 +54,36 @@ export class Fence {
     this.gateX = cx + Math.cos(theta) * radius;
     this.gateY = cy + Math.sin(theta) * radius;
 
-    const g = this.graphics;
-    // shadow, then rail
-    g.lineStyle(F.RAIL_WIDTH + 2, 0x000000, 0.18).beginPath().arc(cx + 2, cy + 3, radius, start, end).strokePath();
-    g.lineStyle(F.RAIL_WIDTH, F.RAIL_COLOR, 1).beginPath().arc(cx, cy, radius, start, end).strokePath();
-
-    // posts
+    // Posts and rail pieces are small sprites, each y-sorted on its own:
+    // cheap to draw (batched, no per-frame tessellation) and the player is
+    // correctly in front of / behind every part of the fence.
+    this.ensurePostTexture();
     const count = Math.ceil(((end - start) * radius) / F.POST_SPACING);
     const s = F.POST_SIZE;
+    const points = [];
     for (let i = 0; i <= count; i++) {
       const a = start + ((end - start) * i) / count;
-      const x = cx + Math.cos(a) * radius;
-      const y = cy + Math.sin(a) * radius;
-      g.fillStyle(F.POST_DARK, 1).fillRect(x - s / 2, y - s / 2, s, s);
-      g.fillStyle(F.POST_COLOR, 1).fillRect(x - s / 2 + 1, y - s / 2 + 1, s - 2, s - 3);
+      points.push({ x: cx + Math.cos(a) * radius, y: cy + Math.sin(a) * radius });
+    }
+    for (let i = 0; i < points.length - 1; i++) {
+      const p = points[i];
+      const q = points[i + 1];
+      const mx = (p.x + q.x) / 2;
+      const my = (p.y + q.y) / 2;
+      const len = Math.hypot(q.x - p.x, q.y - p.y) + 1;
+      const rot = Math.atan2(q.y - p.y, q.x - p.x);
+      const depth = my + s / 2 - 1; // just behind the posts at the same height
+      const shadow = this.scene.add.image(mx + 2, my + 3, 'fx-px').setDisplaySize(len, F.RAIL_WIDTH + 2)
+        .setRotation(rot).setTint(0x000000).setDepth(depth - 0.5);
+      shadow.baseAlpha = 0.18; // the fade-in tween returns each piece to its own alpha
+      this.segments.push(
+        shadow,
+        this.scene.add.image(mx, my, 'fx-px').setDisplaySize(len, F.RAIL_WIDTH).setRotation(rot)
+          .setTint(F.RAIL_COLOR).setDepth(depth),
+      );
+    }
+    for (const { x, y } of points) {
+      this.segments.push(this.scene.add.image(x, y, 'fence-post').setDepth(y + s / 2));
       const c = this.scene.add.circle(x, y, F.POST_RADIUS, 0x000000, 0);
       this.colliders.add(c);
       c.body.setCircle(F.POST_RADIUS);
@@ -83,10 +102,23 @@ export class Fence {
       this.gateView.add(this.scene.add.rectangle(x, y, gp, gp, F.GATE_POST_COLOR).setStrokeStyle(2, 0x5f5f5f));
     }
 
+    this.gateView.setDepth(this.gateY + gp / 2);
+
     // pop-in when rebuilt after an expansion
-    this.graphics.setAlpha(0);
+    this.segments.forEach((g) => g.setAlpha(0));
     this.gateView.setAlpha(0);
-    this.scene.tweens.add({ targets: [this.graphics, this.gateView], alpha: 1, duration: 300 });
+    this.scene.tweens.add({ targets: [...this.segments, this.gateView], alpha: (t) => t.baseAlpha ?? 1, duration: 300 });
+  }
+
+  ensurePostTexture() {
+    if (this.scene.textures.exists('fence-post')) return;
+    const F = CONFIG.FENCE;
+    const s = F.POST_SIZE;
+    const g = this.scene.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(F.POST_DARK, 1).fillRect(0, 0, s, s);
+    g.fillStyle(F.POST_COLOR, 1).fillRect(1, 1, s - 2, s - 3);
+    g.generateTexture('fence-post', s, s);
+    g.destroy();
   }
 
   makeDoor(x, y, closedAngle, length) {
@@ -103,9 +135,15 @@ export class Fence {
     this.doors.push(door);
   }
 
+  // Other things that open the gate when close (workers): () => [{ x, y }, ...]
+  setExtraOpeners(fn) {
+    this.extraOpeners = fn;
+  }
+
   update(delta) {
     const F = CONFIG.FENCE;
-    const near = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.gateX, this.gateY) < F.GATE_OPEN_DISTANCE;
+    const isNear = (o) => Phaser.Math.Distance.Between(o.x, o.y, this.gateX, this.gateY) < F.GATE_OPEN_DISTANCE;
+    const near = isNear(this.player) || (this.extraOpeners?.() ?? []).some(isNear);
     const k = 1 - Math.exp(-F.GATE_OPEN_SPEED * (delta / 1000));
     this.openAmount = Phaser.Math.Linear(this.openAmount, near ? 1 : 0, k);
     for (const door of this.doors) {

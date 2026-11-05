@@ -36,7 +36,10 @@ export class Tool {
   }
 
   // Wind up, strike towards `angle`, call onImpact at the end of the strike.
-  swing(type, angle, onImpact) {
+  // timings: { windup, strike } in ms; defaults to the player's (CONFIG.GATHER).
+  swing(type, angle, onImpact, timings = {}) {
+    const windup = timings.windup ?? CONFIG.GATHER.WINDUP_DURATION;
+    const strike = timings.strike ?? CONFIG.GATHER.STRIKE_DURATION;
     this.draw(type);
     this.swinging = true;
     this.scene.tweens.killTweensOf(this.container);
@@ -45,13 +48,13 @@ export class Tool {
     this.scene.tweens.add({
       targets: this.container,
       rotation: angle - 1.5,
-      duration: CONFIG.GATHER.WINDUP_DURATION,
+      duration: windup,
       ease: 'Sine.easeOut',
       onComplete: () => {
         this.scene.tweens.add({
           targets: this.container,
           rotation: angle + 0.25,
-          duration: CONFIG.GATHER.STRIKE_DURATION,
+          duration: strike,
           ease: 'Quad.easeIn',
           onComplete: () => {
             this.swinging = false;

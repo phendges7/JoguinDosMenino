@@ -11,6 +11,18 @@ export class ResourceManager {
     this.road = road;
     this.nodes = [];
     this.colliders = CONFIG.NODE.BLOCKS_PLAYER ? scene.physics.add.staticGroup() : null;
+    this.reserved = []; // { x, y, radius } areas kept free of nodes (build pads)
+  }
+
+  // Keep an area clear of nodes from now on. Nodes already there move elsewhere.
+  reserveArea(x, y, radius) {
+    this.reserved.push({ x, y, radius });
+    const hit = this.nodes.filter((n) => Phaser.Math.Distance.Between(x, y, n.x, n.y) < radius + n.radius);
+    this.nodes = this.nodes.filter((n) => !hit.includes(n));
+    for (const node of hit) {
+      node.destroy();
+      this.spawn(node.type, false);
+    }
   }
 
   spawnAll() {
@@ -46,6 +58,7 @@ export class ResourceManager {
       const y = Phaser.Math.Between(W.EDGE_MARGIN, W.HEIGHT - W.EDGE_MARGIN);
       if (Phaser.Math.Distance.Between(x, y, this.base.x, this.base.y) < minFromCentre) continue;
       if (this.road && this.road.distanceTo(x, y) < CONFIG.ROAD.NODE_CLEARANCE + def.radius) continue;
+      if (this.reserved.some((r) => Phaser.Math.Distance.Between(x, y, r.x, r.y) < r.radius + def.radius)) continue;
       const clash = this.nodes.some(
         (n) => Phaser.Math.Distance.Between(x, y, n.x, n.y) < n.radius + def.radius + CONFIG.NODE.SPAWN_SPACING,
       );

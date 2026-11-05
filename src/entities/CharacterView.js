@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { CONFIG } from '../config.js';
+import { VISUALS } from '../visuals.js';
+import { softShadow } from '../effects/textures.js';
 
 // A small human drawn from shapes, seen from a slightly tilted top-down view.
 // Faces 4 directions and has a walk cycle. Reusable for workers later:
@@ -9,6 +11,7 @@ import { CONFIG } from '../config.js';
 // top of the head at about y = -37.
 const SHOULDER_Y = -14;
 const HEAD_Y = -26;
+const FEET_Y = 15;
 
 export class CharacterView {
   constructor(scene, look) {
@@ -19,7 +22,9 @@ export class CharacterView {
     this.walkAmount = 0;
 
     this.container = scene.add.container(0, 0);
-    this.shadow = scene.add.ellipse(0, 14, 28, 9, 0x000000, 0.25);
+    this.body = scene.add.container(0, 0); // everything but the shadow; squashes while walking
+    const SH = VISUALS.SHADOW.CHARACTER;
+    this.shadow = softShadow(scene, 0, SH.Y, SH.W, SH.H, SH.ALPHA);
     this.legL = this.makeLeg();
     this.legR = this.makeLeg();
     this.torso = scene.add.graphics();
@@ -28,9 +33,8 @@ export class CharacterView {
     this.head = this.makeHead();
     this.backSlot = scene.add.container(0, 0); // backpack attaches here
 
-    this.container.add([
-      this.shadow, this.legL, this.legR, this.armL, this.armR, this.torso, this.head, this.backSlot,
-    ]);
+    this.body.add([this.legL, this.legR, this.armL, this.armR, this.torso, this.head, this.backSlot]);
+    this.container.add([this.shadow, this.body]);
     this.setFacing('down');
   }
 
@@ -75,9 +79,11 @@ export class CharacterView {
       .fillRoundedRect(-width / 2, -3, width, 5, { tl: 0, tr: 0, bl: 4, br: 4 });
   }
 
-  // Draw order back-to-front for the current facing.
+  // Draw order back-to-front for the current facing (the shadow always stays at the back).
   order(list) {
-    list.forEach((child) => this.container.bringToTop(child));
+    list.forEach((child) => {
+      if (child !== this.shadow) this.body.bringToTop(child);
+    });
   }
 
   setFacing(dir) {
@@ -148,5 +154,11 @@ export class CharacterView {
     this.head.y = HEAD_Y - bob;
     this.armL.y = SHOULDER_Y - bob;
     this.armR.y = SHOULDER_Y - bob;
+
+    // Squash on each footfall, stretch mid-stride; feet stay planted.
+    const stretch = VISUALS.SQUASH.WALK * (Math.abs(s) * 2 - this.walkAmount);
+    const sy = 1 + stretch;
+    this.body.setScale(1 - stretch * 0.7, sy);
+    this.body.y = FEET_Y * (1 - sy);
   }
 }

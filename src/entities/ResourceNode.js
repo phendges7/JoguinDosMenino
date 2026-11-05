@@ -1,43 +1,51 @@
 import Phaser from 'phaser';
 import { CONFIG } from '../config.js';
+import { VISUALS } from '../visuals.js';
+import { softShadow } from '../effects/textures.js';
 
-// Builds the placeholder art for each node type. Returns the shapes so they can flash.
-function buildShapes(scene, type, r) {
-  const shadow = scene.add.ellipse(4, r * 0.55, r * 2, r * 0.9, 0x000000, 0.18);
+// Placeholder art for each node type, as Graphics commands in local
+// coordinates (0, 0 = node centre). Same shapes as before; they are drawn once
+// per type into a texture (see nodeTexture) because ~140 nodes made of many
+// vector circles were the most expensive thing to render every frame.
+function paintNode(g, type, r) {
+  const circle = (x, y, rr, c) => g.fillStyle(c, 1).fillCircle(x, y, rr);
   switch (type) {
     case 'tree':
-      return {
-        shadow,
-        shapes: [
-          scene.add.rectangle(0, r * 0.4, r * 0.38, r * 0.8, 0x6d4425),
-          scene.add.circle(-r * 0.42, -r * 0.05, r * 0.68, 0x2a6e2e),
-          scene.add.circle(r * 0.42, -r * 0.05, r * 0.68, 0x2a6e2e),
-          scene.add.circle(0, -r * 0.45, r * 0.75, 0x2e7d32),
-          scene.add.circle(-r * 0.25, -r * 0.6, r * 0.38, 0x43a047),
-          scene.add.circle(r * 0.35, -r * 0.2, r * 0.22, 0x4caf50),
-        ],
-      };
+      g.fillStyle(0x6d4425, 1).fillRect(-r * 0.19, 0, r * 0.38, r * 0.8);
+      circle(-r * 0.42, -r * 0.05, r * 0.68, 0x2a6e2e);
+      circle(r * 0.42, -r * 0.05, r * 0.68, 0x2a6e2e);
+      circle(0, -r * 0.45, r * 0.75, 0x2e7d32);
+      circle(-r * 0.25, -r * 0.6, r * 0.38, 0x43a047);
+      circle(r * 0.35, -r * 0.2, r * 0.22, 0x4caf50);
+      break;
     case 'stone':
-      return {
-        shadow,
-        shapes: [
-          scene.add.circle(0, 0, r, 0x7d7d7d),
-          scene.add.circle(-r * 0.25, -r * 0.3, r * 0.55, 0xa9a9a9),
-          scene.add.circle(r * 0.4, r * 0.25, r * 0.3, 0x6a6a6a),
-        ],
-      };
+      circle(0, 0, r, 0x7d7d7d);
+      circle(-r * 0.25, -r * 0.3, r * 0.55, 0xa9a9a9);
+      circle(r * 0.4, r * 0.25, r * 0.3, 0x6a6a6a);
+      break;
     case 'gold':
-      return {
-        shadow,
-        shapes: [
-          scene.add.circle(0, 0, r, 0xc9971a),
-          scene.add.circle(-r * 0.25, -r * 0.3, r * 0.55, 0xf2c94c),
-          scene.add.circle(r * 0.35, r * 0.3, r * 0.25, 0xfff1a8),
-        ],
-      };
+      circle(0, 0, r, 0xc9971a);
+      circle(-r * 0.25, -r * 0.3, r * 0.55, 0xf2c94c);
+      circle(r * 0.35, r * 0.3, r * 0.25, 0xfff1a8);
+      break;
     default:
       throw new Error(`Unknown node type: ${type}`);
   }
+}
+
+// Texture key for a node type, generated on first use. The canvas is 2.6r
+// square with the node centre in the middle.
+function nodeTexture(scene, type, r) {
+  const key = `node-${type}`;
+  if (!scene.textures.exists(key)) {
+    const half = Math.ceil(r * 1.3);
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+    g.translateCanvas(half, half);
+    paintNode(g, type, r);
+    g.generateTexture(key, half * 2, half * 2);
+    g.destroy();
+  }
+  return key;
 }
 
 export class ResourceNode {
@@ -54,10 +62,11 @@ export class ResourceNode {
     this.health = this.maxHealth;
     this.active = true;
 
-    const { shadow, shapes } = buildShapes(scene, type, this.radius);
-    this.shapes = shapes;
-    this.baseColors = shapes.map((s) => s.fillColor);
-    this.view = scene.add.container(x, y, [shadow, ...shapes]).setDepth(y);
+    const r = this.radius;
+    const S = VISUALS.SHADOW.NODE;
+    const shadow = softShadow(scene, 4, r * S.Y_FACTOR, r * S.W_FACTOR, r * S.H_FACTOR, S.ALPHA);
+    this.image = scene.add.image(0, 0, nodeTexture(scene, type, r));
+    this.view = scene.add.container(x, y, [shadow, this.image]).setDepth(y + r * 0.6); // y-sort by the base
 
     this.collider = null;
     if (colliderGroup) {
@@ -108,10 +117,10 @@ export class ResourceNode {
   }
 
   flash() {
-    this.shapes.forEach((s) => s.setFillStyle(0xffffff));
+    this.image.setTintFill(0xffffff);
     this.scene.time.delayedCall(CONFIG.NODE.FLASH_DURATION, () => {
       if (this.destroyed) return;
-      this.shapes.forEach((s, i) => s.setFillStyle(this.baseColors[i]));
+      this.image.clearTint();
     });
   }
 

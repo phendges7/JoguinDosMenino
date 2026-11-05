@@ -27,6 +27,7 @@ export class Player {
     this.view.add([this.character.container, this.tool.container]);
 
     this.facing = new Phaser.Math.Vector2(0, 1);
+    this.alive = true; // set by Combat; a dead player ignores input
 
     this.keys = scene.input.keyboard.addKeys({
       up: 'W', down: 'S', left: 'A', right: 'D',
@@ -45,6 +46,10 @@ export class Player {
   }
 
   update(delta) {
+    if (!this.alive) {
+      this.body.setVelocity(0, 0);
+      return;
+    }
     const k = this.keys;
     const dir = new Phaser.Math.Vector2(
       (k.right.isDown || k.right2.isDown ? 1 : 0) - (k.left.isDown || k.left2.isDown ? 1 : 0),
@@ -65,6 +70,12 @@ export class Player {
     if (moving) this.facing.copy(dir).normalize();
   }
 
+  // Move instantly (respawn).
+  teleport(x, y) {
+    this.body.reset(x, y);
+    this.view.setPosition(x, y);
+  }
+
   // Turn to look at a point (used while gathering).
   faceTowards(x, y) {
     this.facing.set(x - this.x, y - this.y).normalize();
@@ -72,7 +83,7 @@ export class Player {
 
   syncView() {
     this.view.setPosition(this.sprite.x, this.sprite.y);
-    this.view.setDepth(this.sprite.y);
+    this.view.setDepth(this.sprite.y + this.radius); // y-sort by the feet
 
     const f = this.facing;
     const dir = Math.abs(f.x) > Math.abs(f.y) ? (f.x > 0 ? 'right' : 'left') : (f.y > 0 ? 'down' : 'up');

@@ -110,12 +110,16 @@ export class Road {
     this.drawSpawn();
   }
 
-  // Dark portal with a pulsing red glow and a skull at the road's far end.
-  drawSpawn() {
+  // Centre of the zombie portal: a little way in from the road's end at the map edge.
+  get portalPoint() {
     const t = this.tangentAtDistance(this.length);
     const end = this.spawnPoint;
-    const x = end.x - t.x * 50;
-    const y = end.y - t.y * 50;
+    return { x: end.x - t.x * 50, y: end.y - t.y * 50 };
+  }
+
+  // Dark portal with a pulsing red glow and a skull at the road's far end.
+  drawSpawn() {
+    const { x, y } = this.portalPoint;
     const s = this.scene;
 
     const glow = s.add.circle(x, y, 70, 0xc0392b, 0.25).setDepth(-940);
